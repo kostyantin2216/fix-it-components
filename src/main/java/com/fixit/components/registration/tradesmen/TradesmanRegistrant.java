@@ -9,15 +9,18 @@ import javax.mail.internet.AddressException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import com.fixit.core.dao.mongo.TradesmanDao;
 import com.fixit.core.dao.sql.StoredPropertyDao;
 import com.fixit.core.dao.sql.TradesmanLeadDao;
+import com.fixit.core.data.mongo.Tradesman;
 import com.fixit.core.data.shopify.ShopifyCustomer;
 import com.fixit.core.data.sql.TradesmanLead;
 import com.fixit.core.general.PropertyGroup;
 import com.fixit.core.general.PropertyGroup.Group;
-import com.fixit.core.general.SimpleEmailSender;
 import com.fixit.core.general.StoredProperties;
 import com.fixit.core.logging.FILog;
+import com.fixit.core.messaging.SimpleEmailSender;
+import com.fixit.core.utils.Constants;
 
 /**
  * @author 		Kostyantin
@@ -26,14 +29,14 @@ import com.fixit.core.logging.FILog;
 @Component
 public class TradesmanRegistrant {
 	
-	private final static String LOG_TAG = TradesmanRegistrant.class.getSimpleName();
-
+	private final TradesmanDao mTradesmanDao;
 	private final TradesmanLeadDao mLeadDao;
 	private final StoredPropertyDao mPropertyDao;
 	private final SimpleEmailSender mMailSender;
 	
 	@Autowired
-	public TradesmanRegistrant(TradesmanLeadDao tradesmanLeadDao, StoredPropertyDao storedPropertyDao, Session session) {
+	public TradesmanRegistrant(TradesmanDao tradesmanDao, TradesmanLeadDao tradesmanLeadDao, StoredPropertyDao storedPropertyDao, Session session) {
+		mTradesmanDao = tradesmanDao;
 		mLeadDao = tradesmanLeadDao;
 		mPropertyDao = storedPropertyDao;
 		PropertyGroup pg = mPropertyDao.getPropertyGroup(Group.mail);
@@ -57,7 +60,7 @@ public class TradesmanRegistrant {
 		if(mLeadDao.isNewLead(lead)) {
 			registerLead(lead);
 		} else {
-			FILog.w(LOG_TAG, "Couldn't store lead: " + lead, true);
+			FILog.w(Constants.LT_TRADESMAN_REGISTRATION, "Couldn't store lead: " + lead, true);
 		}
 	}
 	
@@ -69,6 +72,14 @@ public class TradesmanRegistrant {
 						+ "please complete your registration here http://www.fixxit.com/web/registration/" + lead.getId(); 
 
 		mMailSender.sendMail(subject, content, lead.getEmail());
+	}
+	
+	public TradesmanLead findLead(long leadId) {
+		return mLeadDao.findById(leadId);
+	}
+	
+	public void registerTradesman(Tradesman tradesman) {
+		mTradesmanDao.save(tradesman);
 	}
 	
 }
