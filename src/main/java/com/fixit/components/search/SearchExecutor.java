@@ -11,6 +11,7 @@ import java.util.concurrent.TimeUnit;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import com.fixit.components.statistics.StatisticsCollector;
 import com.fixit.core.dao.mongo.TradesmanDao;
 import com.fixit.core.utils.CommonUtils;
 import com.google.common.cache.Cache;
@@ -29,6 +30,7 @@ import com.google.common.util.concurrent.MoreExecutors;
 public class SearchExecutor {
 	
 	private final TradesmanDao mTradesmanDao;
+	private final StatisticsCollector mStatsCollector;
 
 	private final ListeningExecutorService mExecutor;
 	private final Cache<String, SearchResult> mCache;
@@ -37,8 +39,9 @@ public class SearchExecutor {
 	private final Object mLock = new Object();
 	
 	@Autowired
-	public SearchExecutor(TradesmanDao tradesmanDao) {
+	public SearchExecutor(TradesmanDao tradesmanDao, StatisticsCollector statisticsCollector) {
 		mTradesmanDao = tradesmanDao;
+		mStatsCollector = statisticsCollector;
 		
 		int maxTasks = (int) Math.floor(CommonUtils.percent(70, Runtime.getRuntime().availableProcessors()));
 		mExecutor = MoreExecutors.listeningDecorator(Executors.newWorkStealingPool(maxTasks));
@@ -95,6 +98,8 @@ public class SearchExecutor {
 				resultBuilder.setComplete().addError(SearchResult.Error.NO_SEARCH_EXISTS);
 			}
 			result = resultBuilder.build();
+		} else {
+			mStatsCollector.searchResultsRequested(result.tradesmen);
 		}
 		
 		return result;

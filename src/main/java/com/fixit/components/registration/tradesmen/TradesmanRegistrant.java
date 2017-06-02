@@ -9,6 +9,7 @@ import javax.mail.internet.AddressException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import com.fixit.components.statistics.StatisticsCollector;
 import com.fixit.core.dao.mongo.TradesmanDao;
 import com.fixit.core.dao.sql.StoredPropertyDao;
 import com.fixit.core.dao.sql.TradesmanLeadDao;
@@ -32,13 +33,17 @@ public class TradesmanRegistrant {
 	private final TradesmanDao mTradesmanDao;
 	private final TradesmanLeadDao mLeadDao;
 	private final StoredPropertyDao mPropertyDao;
+	private final StatisticsCollector mStatsCollector;
 	private final SimpleEmailSender mMailSender;
 	
 	@Autowired
-	public TradesmanRegistrant(TradesmanDao tradesmanDao, TradesmanLeadDao tradesmanLeadDao, StoredPropertyDao storedPropertyDao, Session session) {
+	public TradesmanRegistrant(TradesmanDao tradesmanDao, TradesmanLeadDao tradesmanLeadDao, 
+							   StoredPropertyDao storedPropertyDao, StatisticsCollector statisticsCollector, 
+							   Session session) {
 		mTradesmanDao = tradesmanDao;
 		mLeadDao = tradesmanLeadDao;
 		mPropertyDao = storedPropertyDao;
+		mStatsCollector = statisticsCollector;
 		PropertyGroup pg = mPropertyDao.getPropertyGroup(Group.mail);
 		String from = pg.getString(StoredProperties.MAIL_USERNAME, "");
 		try {
@@ -80,6 +85,7 @@ public class TradesmanRegistrant {
 	
 	public void registerTradesman(Tradesman tradesman) {
 		mTradesmanDao.save(tradesman);
+		mStatsCollector.tradesmanRegistered(tradesman);
 	}
 	
 }
