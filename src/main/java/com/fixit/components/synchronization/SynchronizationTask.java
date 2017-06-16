@@ -10,9 +10,9 @@ import java.util.Map;
 import java.util.Set;
 
 import org.springframework.beans.BeansException;
+import org.springframework.context.ApplicationContext;
 
 import com.fixit.components.synchronization.processors.SynchronizationProcessor;
-import com.fixit.core.config.CoreContextProvider;
 import com.fixit.core.dao.mongo.SynchronizationParamsDao;
 import com.fixit.core.data.SynchronizationAction;
 import com.fixit.core.data.mongo.SynchronizationParams;
@@ -27,12 +27,14 @@ import com.fixit.core.tasks.TaskResult;
 public class SynchronizationTask {
 	
 	private final static String PROCESSOR_NAME_SUFFIX = "Processor";
-	
+
+	private final ApplicationContext applicationContext;
 	private final SynchronizationParamsDao synchronizationParamsDao;
 	
 	private final Date lastSynchronization;
 
-	public SynchronizationTask(SynchronizationParamsDao synchronizationParamsDao, Date lastSynchronizationDate) {
+	public SynchronizationTask(ApplicationContext applicationContext, SynchronizationParamsDao synchronizationParamsDao, Date lastSynchronizationDate) {
+		this.applicationContext = applicationContext;
 		this.synchronizationParamsDao = synchronizationParamsDao;
 		this.lastSynchronization = lastSynchronizationDate;
 	}
@@ -59,7 +61,7 @@ public class SynchronizationTask {
 	private SynchronizationResult process(String name, Set<SynchronizationAction> actions) {
 		String processorName = name + PROCESSOR_NAME_SUFFIX;
 		try {
-			SynchronizationProcessor processor = (SynchronizationProcessor) CoreContextProvider.getBean(processorName);
+			SynchronizationProcessor processor = (SynchronizationProcessor) applicationContext.getBean(processorName);
 			SynchronizationParams params = synchronizationParamsDao.findByTableName(name);
 			SynchronizationResult result = processor.process(lastSynchronization, params, actions);
 			result.setName(name);
