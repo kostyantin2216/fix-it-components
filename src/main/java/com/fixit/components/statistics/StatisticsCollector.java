@@ -32,11 +32,11 @@ public class StatisticsCollector {
 		mTradesmanStatsDao = tradesmanStatisticsDao;
 	}
 	
-	private UserStatistics getUserStatistics(ObjectId userId) {
+	public UserStatistics getUserStatistics(ObjectId userId) {
 		return getUserStatistics(userId.toString());
 	}
 	
-	private UserStatistics getUserStatistics(String userId) {
+	public UserStatistics getUserStatistics(String userId) {
 		UserStatistics userStatistics = mUserStatsDao.findById(userId);
 		if(userStatistics == null) {
 			userStatistics = new UserStatistics(userId);
@@ -45,11 +45,11 @@ public class StatisticsCollector {
 		return userStatistics;
 	}
 	
-	private TradesmanStatistics getTradesmanStatistics(ObjectId tradesmanId) {
+	public TradesmanStatistics getTradesmanStatistics(ObjectId tradesmanId) {
 		return getTradesmanStatistics(tradesmanId.toString());
 	}
 	
-	private TradesmanStatistics getTradesmanStatistics(String tradesmanId) {
+	public TradesmanStatistics getTradesmanStatistics(String tradesmanId) {
 		TradesmanStatistics tradesmanStatistics = mTradesmanStatsDao.findById(tradesmanId);
 		if(tradesmanStatistics == null) {
 			tradesmanStatistics = new TradesmanStatistics(tradesmanId);

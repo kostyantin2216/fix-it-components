@@ -19,6 +19,7 @@ import com.fixit.core.data.SynchronizationAction.Action;
 import com.fixit.core.data.UpdateDateDataModelObject;
 import com.fixit.core.data.mongo.SynchronizationParams;
 import com.fixit.core.logging.FILog;
+import com.fixit.core.utils.Constants;
 
 /**
  * @author 		Kostyantin
@@ -86,6 +87,8 @@ public abstract class BaseSynchronizationProcessor<DAO extends UpdateDateDao<DMO
 					}
 				}
 			}
+		} else {
+			FILog.w(Constants.LT_SYNCHRONIZATION,"Synchronization Params are null for " + getDmoName());
 		}
 		
 		return result;

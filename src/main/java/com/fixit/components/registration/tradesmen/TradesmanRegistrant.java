@@ -70,13 +70,14 @@ public class TradesmanRegistrant {
 	}
 	
 	private void registerLead(TradesmanLead lead) {
-		mLeadDao.save(lead);
-		
 		String subject = "Fix It Registration";
 		String content = "Hello " + lead.getFirstName() + " " + lead.getLastName() + "\n"
 						+ "please complete your registration here http://www.fixxit.com/web/registration/" + lead.getId(); 
 
-		mMailSender.sendMail(subject, content, lead.getEmail());
+		boolean sentSuccessfully = mMailSender.sendMail(subject, content, lead.getEmail());
+		lead.setEmailSent(sentSuccessfully);
+		
+		mLeadDao.save(lead);
 	}
 	
 	public TradesmanLead findLead(long leadId) {
