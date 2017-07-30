@@ -3,12 +3,12 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.fix-it</groupId>
   <artifactId>fix-it-components</artifactId>
-  <version>0.0.1-SNAPSHOT</version>
+  <version>0.0.1</version>
   <name>Fix It Components</name>
   <description>The controller layer of fix it</description>
   
   <properties>
-  	<core.version>0.0.1-SNAPSHOT</core.version>
+  	<core.version>0.0.1</core.version>
   </properties>
   
   <dependencies>
