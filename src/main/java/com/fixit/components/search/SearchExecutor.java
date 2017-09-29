@@ -11,9 +11,9 @@ import java.util.concurrent.TimeUnit;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import com.fixit.components.statistics.StatisticsCollector;
 import com.fixit.core.dao.mongo.TradesmanDao;
-import com.fixit.core.utils.CommonUtils;
+import com.fixit.core.dao.sql.ReviewDao;
+import com.fixit.core.utils.Formatter;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.util.concurrent.FutureCallback;
@@ -30,8 +30,8 @@ import com.google.common.util.concurrent.MoreExecutors;
 public class SearchExecutor {
 	
 	private final TradesmanDao mTradesmanDao;
-	private final StatisticsCollector mStatsCollector;
-
+	private final ReviewDao mReviewDao;
+	
 	private final ListeningExecutorService mExecutor;
 	private final Cache<String, SearchResult> mCache;
 	
@@ -39,11 +39,11 @@ public class SearchExecutor {
 	private final Object mLock = new Object();
 	
 	@Autowired
-	public SearchExecutor(TradesmanDao tradesmanDao, StatisticsCollector statisticsCollector) {
+	public SearchExecutor(TradesmanDao tradesmanDao, ReviewDao reviewDao) {
 		mTradesmanDao = tradesmanDao;
-		mStatsCollector = statisticsCollector;
+		mReviewDao = reviewDao;
 		
-		int maxTasks = (int) Math.floor(CommonUtils.percent(70, Runtime.getRuntime().availableProcessors()));
+		int maxTasks = (int) Math.floor(Formatter.percent(70, Runtime.getRuntime().availableProcessors()));
 		mExecutor = MoreExecutors.listeningDecorator(Executors.newWorkStealingPool(maxTasks));
 		mCache = CacheBuilder.newBuilder().expireAfterAccess(1, TimeUnit.MINUTES).build();
 	}
@@ -61,7 +61,7 @@ public class SearchExecutor {
 		}
 		
 		if(startSearch) {
-			ListenableFuture<SearchResult> future = mExecutor.submit(new SearchTask(mTradesmanDao, searchParams));
+			ListenableFuture<SearchResult> future = mExecutor.submit(new SearchTask(mTradesmanDao, mReviewDao, searchParams));
 			Futures.addCallback(future, new FutureCallback<SearchResult>() {
 
 				@Override
@@ -85,28 +85,27 @@ public class SearchExecutor {
 	}
 	
 	public SearchResult getResult(String searchKey) {
-		SearchResult result = mCache.getIfPresent(searchKey);
+		SearchResult result;
+		boolean onGoingSearch;
 		
-		if(result == null) {
-			boolean isOnGoing;
-			synchronized (mLock) {
-				isOnGoing = mOnGoingSearches.contains(searchKey);
-			}
-			
+		synchronized (mLock) {
+			result = mCache.getIfPresent(searchKey);
+			onGoingSearch = mOnGoingSearches.contains(searchKey);
+		}
+		
+		if(result == null) {			
 			SearchResult.Builder resultBuilder = new SearchResult.Builder();
-			if(!isOnGoing) {
+			if(!onGoingSearch) {
 				resultBuilder.setComplete().addError(SearchResult.Error.NO_SEARCH_EXISTS);
 			}
 			result = resultBuilder.build();
-		} else {
-			mStatsCollector.searchResultsRequested(result.tradesmen);
 		}
 		
 		return result;
 	}
 	
 	private String createKey(SearchParams searchParams) {
-		return searchParams.professionId + "-" + searchParams.location.get_id().toString();
+		return searchParams.professionId + "-" + searchParams.location.get_id().toHexString();
 	}
 	
 }

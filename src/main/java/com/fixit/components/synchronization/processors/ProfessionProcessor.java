@@ -13,7 +13,7 @@ import com.fixit.core.data.sql.Profession;
  * @author 		Kostyantin
  * @createdAt 	2017/03/30 21:45:41 GMT+3
  */
-@Component("professionProcessor")
+@Component
 public class ProfessionProcessor extends BaseSynchronizationProcessor<ProfessionDao, Profession, Integer> {
 
 	@Autowired

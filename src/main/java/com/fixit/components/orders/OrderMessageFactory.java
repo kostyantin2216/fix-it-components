@@ -5,6 +5,7 @@ package com.fixit.components.orders;
 
 import com.fixit.core.data.JobLocation;
 import com.fixit.core.data.mongo.User;
+import com.fixit.core.data.sql.JobReason;
 import com.fixit.core.data.sql.UserStatistics;
 import com.fixit.core.general.PropertyGroup;
 import com.fixit.core.general.StoredProperties;
@@ -21,19 +22,29 @@ public class OrderMessageFactory {
 		firstOrderDiscount = ordersPropertyGroup.getString(StoredProperties.ORDERS_FIRST_ORDER_DISCOUNT, "0");
 	}
 
-	public String createMessage(User user, UserStatistics userStatistics, JobLocation jobLocation, String reason) {
+	public String createMessage(User user, UserStatistics userStatistics, JobLocation jobLocation, JobReason[] jobReasons, String comment) {
 		StringBuilder sb = new StringBuilder();
 		
-		sb.append("New order from ").append(user.getName())
-		  .append(", telephone: ").append(user.getTelephone())
-		  .append(", location: ").append(jobLocation.toReadableAddress());
+		sb.append("Order from ").append(user.getName())
+		  .append(", ").append(user.getTelephone())
+		  .append(", ").append(jobLocation.toReadableAddress(false));
 		
 		if(!firstOrderDiscount.equals("0") && userStatistics.getJobsOrdered() == 0) {
 			sb.append("\nFirst order! ")
 			  .append(firstOrderDiscount)
 			  .append(" discount.");
 		}
-		sb.append("\nComment:\n").append(reason);
+		
+		sb.append("\n").append(comment).append(";");
+		
+		int charCount = sb.length();
+		
+		for(JobReason jobReason : jobReasons) {
+			if(sb.length() > charCount) {
+				sb.append(",");
+			}
+			sb.append(jobReason.getName());
+		}
 		
 		return sb.toString();
 	}

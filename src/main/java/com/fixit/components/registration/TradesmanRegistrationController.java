@@ -1,7 +1,7 @@
 /**
  * 
  */
-package com.fixit.components.registration.tradesmen;
+package com.fixit.components.registration;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -32,7 +32,7 @@ import com.fixit.core.utils.Constants;
  * @createdAt 	2017/04/25 23:45:35 GMT+3
  */
 @Component
-public class TradesmanRegistrant {
+public class TradesmanRegistrationController {
 	
 	private final FileManager mFileManager;
 	private final TradesmanDao mTradesmanDao;
@@ -42,7 +42,7 @@ public class TradesmanRegistrant {
 	private final SimpleEmailSender mMailSender;
 	
 	@Autowired
-	public TradesmanRegistrant(FileManager fileManager, TradesmanDao tradesmanDao, TradesmanLeadDao tradesmanLeadDao, 
+	public TradesmanRegistrationController(FileManager fileManager, TradesmanDao tradesmanDao, TradesmanLeadDao tradesmanLeadDao, 
 							   StoredPropertyDao storedPropertyDao, StatisticsCollector statisticsCollector, 
 							   Session session) {
 		mFileManager = fileManager;
@@ -94,12 +94,20 @@ public class TradesmanRegistrant {
 	
 	public void registerTradesman(long leadId, Tradesman tradesman, InputStream logoInputStream, String logoFileExtension, InputStream featureInputStream, String featureFileExtension) throws IOException {
 		mTradesmanDao.save(tradesman);
+		
 		String tradesmanId = tradesman.get_id().toHexString();
-		mFileManager.storeTradesmanLogo(tradesmanId, logoFileExtension, logoInputStream);
-		mFileManager.storeTradesmanFeatureImage(tradesmanId, featureFileExtension, featureInputStream);
+		String logoPath = mFileManager.storeTradesmanLogo(tradesmanId, logoFileExtension, logoInputStream);
+		String featureImagesPath = mFileManager.storeTradesmanFeatureImage(tradesmanId, featureFileExtension, featureInputStream);
+		tradesman.setLogoUrl(logoPath);
+		tradesman.setFeatureImageUrl(featureImagesPath);
+		
+		mTradesmanDao.update(tradesman);
+		
 		mStatsCollector.tradesmanRegistered(tradesman);
+		
 		TradesmanLead lead = findLead(leadId);
-	//	lead.setTradesmanId(tradesmanId);
+		lead.setTradesmanId(tradesmanId);
+		mLeadDao.update(lead);
 	}
 	
 }

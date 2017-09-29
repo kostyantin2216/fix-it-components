@@ -3,10 +3,13 @@
  */
 package com.fixit.components.search;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Callable;
 
 import com.fixit.core.dao.mongo.TradesmanDao;
+import com.fixit.core.dao.sql.ReviewDao;
 import com.fixit.core.data.mongo.Tradesman;
 
 /**
@@ -16,10 +19,12 @@ import com.fixit.core.data.mongo.Tradesman;
 public class SearchTask implements Callable<SearchResult> {
 
 	private final TradesmanDao mTradesmanDao;
+	private final ReviewDao mReviewDao;
 	private final SearchParams mParams;
 	
-	public SearchTask(TradesmanDao tradesmanDao, SearchParams searchParams) {
+	public SearchTask(TradesmanDao tradesmanDao, ReviewDao reviewDao, SearchParams searchParams) {
 		mTradesmanDao = tradesmanDao;
+		mReviewDao = reviewDao;
 		mParams = searchParams;
 	}
 
@@ -31,6 +36,13 @@ public class SearchTask implements Callable<SearchResult> {
 		if(tradesmen != null) {
 			resultBuilder.addTradesmen(tradesmen);
 		}
+		
+		Map<String, Long> reviewCountForTradesmen = new HashMap<>();
+		for(Tradesman tradesman : tradesmen) {
+			String tradesmanId = tradesman.get_id().toHexString();
+			reviewCountForTradesmen.put(tradesmanId, mReviewDao.getCountForTradesman(tradesmanId));
+		}
+		resultBuilder.setReviewCountForTradesmen(reviewCountForTradesmen);
 
 		return resultBuilder.setComplete().build();
 	}

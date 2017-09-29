@@ -4,13 +4,16 @@
 package com.fixit.components.search;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import com.fixit.core.data.mongo.Tradesman;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
 /**
@@ -21,6 +24,7 @@ public class SearchResult {
 
 	public final ImmutableSet<Error> errors;
 	public final ImmutableList<Tradesman> tradesmen;
+	public final ImmutableMap<String, Long> reviewCountForTradesmen;
 	public final boolean isComplete;
 	
 	public enum Error {
@@ -30,6 +34,8 @@ public class SearchResult {
 	private SearchResult(Builder builder) {
 		tradesmen = ImmutableList.copyOf(builder.tradesmen);
 		errors = ImmutableSet.copyOf(builder.errors);
+		reviewCountForTradesmen = ImmutableMap.copyOf(builder.reviewCountForTradesmen);
+		
 		isComplete = builder.isComplete;
 	}
 	
@@ -50,6 +56,7 @@ public class SearchResult {
 	public static class Builder {
 		private List<Tradesman> tradesmen = new ArrayList<>();
 		private Set<Error> errors = new HashSet<>();
+		private Map<String, Long> reviewCountForTradesmen = new HashMap<>();
 		private boolean isComplete = false;
 		
 		public Builder() { }
@@ -66,6 +73,11 @@ public class SearchResult {
 		
 		public Builder addTradesmen(List<Tradesman> tradesmen) {
 			this.tradesmen.addAll(tradesmen);
+			return this;
+		}
+		
+		public Builder setReviewCountForTradesmen(Map<String, Long> reviewCountForTradesman) {
+			this.reviewCountForTradesmen = reviewCountForTradesman;
 			return this;
 		}
 		

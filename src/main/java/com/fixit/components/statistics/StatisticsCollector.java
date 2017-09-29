@@ -33,7 +33,7 @@ public class StatisticsCollector {
 	}
 	
 	public UserStatistics getUserStatistics(ObjectId userId) {
-		return getUserStatistics(userId.toString());
+		return getUserStatistics(userId.toHexString());
 	}
 	
 	public UserStatistics getUserStatistics(String userId) {
@@ -46,7 +46,7 @@ public class StatisticsCollector {
 	}
 	
 	public TradesmanStatistics getTradesmanStatistics(ObjectId tradesmanId) {
-		return getTradesmanStatistics(tradesmanId.toString());
+		return getTradesmanStatistics(tradesmanId.toHexString());
 	}
 	
 	public TradesmanStatistics getTradesmanStatistics(String tradesmanId) {
@@ -59,14 +59,14 @@ public class StatisticsCollector {
 	}
 	
 	public void tradesmanRegistered(Tradesman tradesman) {
-		mTradesmanStatsDao.save(new TradesmanStatistics(tradesman.get_id().toString()));
+		mTradesmanStatsDao.save(new TradesmanStatistics(tradesman.get_id().toHexString()));
 	}
 	
 	public void userRegistered(User user) {
-		mUserStatsDao.save(new UserStatistics(user.get_id().toString()));
+		mUserStatsDao.save(new UserStatistics(user.get_id().toHexString()));
 	}
 	
-	public void searchResultsRequested(List<Tradesman> tradesmen) {
+	public void searchResultsReceived(List<Tradesman> tradesmen) {
 		for(Tradesman tradesman : tradesmen) {
 			TradesmanStatistics tradesmanStats = getTradesmanStatistics(tradesman.get_id());
 			tradesmanStats.setTimesShown(tradesmanStats.getTimesShown() + 1);

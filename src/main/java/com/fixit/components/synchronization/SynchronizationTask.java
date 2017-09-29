@@ -18,6 +18,7 @@ import com.fixit.core.data.SynchronizationAction;
 import com.fixit.core.data.mongo.SynchronizationParams;
 import com.fixit.core.logging.FILog;
 import com.fixit.core.tasks.TaskResult;
+import com.fixit.core.utils.Formatter;
 
 /**
  * @author 		Kostyantin
@@ -44,7 +45,7 @@ public class SynchronizationTask {
 		
 		List<SynchronizationResult> synchronizationResults = new ArrayList<>();
 		for(Map.Entry<String, Set<SynchronizationAction>> historyEntry : historyMap.entrySet()) {
-			String name = historyEntry.getKey().toLowerCase();
+			String name = Formatter.deCapitalize(historyEntry.getKey());
 			SynchronizationResult synchronizationResult = process(name, historyEntry.getValue());
 			if(synchronizationResult != null) {
 				synchronizationResults.add(synchronizationResult);
