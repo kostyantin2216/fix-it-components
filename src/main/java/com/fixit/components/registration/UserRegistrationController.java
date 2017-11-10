@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
+import com.fixit.components.events.ServerEventController;
 import com.fixit.components.statistics.StatisticsCollector;
 import com.fixit.core.dao.mongo.AppInstallationDao;
 import com.fixit.core.dao.mongo.UserDao;
@@ -25,12 +26,15 @@ public class UserRegistrationController {
 	private final UserDao mUserDao;
 	private final AppInstallationDao mInstallationDao;
 	private final StatisticsCollector mStatsCollector;
+	private final ServerEventController mEventController;
 	
 	@Autowired
-	public UserRegistrationController(UserDao userDao, AppInstallationDao appInstallationDao, StatisticsCollector statisticsCollector) {
+	public UserRegistrationController(UserDao userDao, AppInstallationDao appInstallationDao, StatisticsCollector statisticsCollector,
+									  ServerEventController serverEventController) {
 		mUserDao = userDao;
 		mInstallationDao = appInstallationDao;
 		mStatsCollector = statisticsCollector;
+		mEventController = serverEventController;
 	}
 	
 	public RegistrationResult findOrRegister(User user, String appInstallationId) {		
@@ -53,6 +57,7 @@ public class UserRegistrationController {
 						if(existingUser == null) {
 							mUserDao.save(user);
 							mStatsCollector.userRegistered(user);
+							mEventController.newUser(user);
 							return RegistrationResult.newUser(user);
 						} else {
 							return RegistrationResult.emailExists();
@@ -64,6 +69,7 @@ public class UserRegistrationController {
 			if(existingUser.update(user)) {
 				mUserDao.update(existingUser);
 			}
+			mEventController.returningUser(existingUser);
 			return RegistrationResult.existingUser(existingUser);
 		} else {
 			return RegistrationResult.invalidAppInstallationId();

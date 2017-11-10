@@ -30,20 +30,22 @@ public class SearchTask implements Callable<SearchResult> {
 
 	@Override
 	public SearchResult call() throws Exception {
-		SearchResult.Builder resultBuilder = new SearchResult.Builder();
+		SearchResult.Builder resultBuilder = new SearchResult.Builder(mParams);
 
-		List<Tradesman> tradesmen = mTradesmanDao.getTradesmenForArea(mParams.professionId, mParams.location);
-		if(tradesmen != null) {
-			resultBuilder.addTradesmen(tradesmen);
+		List<Tradesman> tradesmen = mTradesmanDao.getTradesmenForArea(mParams.profession.getId(), mParams.location);
+		if(tradesmen != null) {		
+			Map<String, Long> reviewCountForTradesmen = new HashMap<>();
+			for(Tradesman tradesman : tradesmen) {
+				if(tradesman.isActive()) {
+					String tradesmanId = tradesman.get_id().toHexString();
+					reviewCountForTradesmen.put(tradesmanId, mReviewDao.getCountForTradesman(tradesmanId));
+				
+					resultBuilder.addTradesman(tradesman);
+				}
+			}
+			resultBuilder.setReviewCountForTradesmen(reviewCountForTradesmen);
 		}
 		
-		Map<String, Long> reviewCountForTradesmen = new HashMap<>();
-		for(Tradesman tradesman : tradesmen) {
-			String tradesmanId = tradesman.get_id().toHexString();
-			reviewCountForTradesmen.put(tradesmanId, mReviewDao.getCountForTradesman(tradesmanId));
-		}
-		resultBuilder.setReviewCountForTradesmen(reviewCountForTradesmen);
-
 		return resultBuilder.setComplete().build();
 	}
 

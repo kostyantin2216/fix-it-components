@@ -3,8 +3,10 @@
  */
 package com.fixit.components.orders;
 
+import org.springframework.util.StringUtils;
+
 import com.fixit.core.data.JobLocation;
-import com.fixit.core.data.mongo.User;
+import com.fixit.core.data.mongo.CommonUser;
 import com.fixit.core.data.sql.JobReason;
 import com.fixit.core.data.sql.UserStatistics;
 import com.fixit.core.general.PropertyGroup;
@@ -22,7 +24,7 @@ public class OrderMessageFactory {
 		firstOrderDiscount = ordersPropertyGroup.getString(StoredProperties.ORDERS_FIRST_ORDER_DISCOUNT, "0");
 	}
 
-	public String createMessage(User user, UserStatistics userStatistics, JobLocation jobLocation, JobReason[] jobReasons, String comment) {
+	public String createMessage(CommonUser user, UserStatistics userStatistics, JobLocation jobLocation, JobReason[] jobReasons, String comment) {
 		StringBuilder sb = new StringBuilder();
 		
 		sb.append("Order from ").append(user.getName())
@@ -35,7 +37,10 @@ public class OrderMessageFactory {
 			  .append(" discount.");
 		}
 		
-		sb.append("\n").append(comment).append(";");
+		sb.append("\n");
+		if(!StringUtils.isEmpty(comment)) {
+			sb.append(comment).append(";");
+		}
 		
 		int charCount = sb.length();
 		

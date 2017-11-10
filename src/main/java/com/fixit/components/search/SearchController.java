@@ -3,15 +3,15 @@
  */
 package com.fixit.components.search;
 
-import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
 import org.springframework.stereotype.Component;
 
 import com.fixit.components.statistics.StatisticsCollector;
-import com.fixit.core.dao.mongo.MapAreaDao;
-import com.fixit.core.data.MapAreaType;
-import com.fixit.core.data.MutableLatLng;
 import com.fixit.core.data.mongo.MapArea;
+import com.fixit.core.data.sql.Profession;
+
+import io.reactivex.Observable;
 
 /**
  * @author 		Kostyantin
@@ -21,35 +21,36 @@ import com.fixit.core.data.mongo.MapArea;
 public class SearchController {
 
 	private final SearchExecutor mSearchExec;
-	private final MapAreaDao mMapAreaDao;
 	private final StatisticsCollector mStatsCollector;
 	
-	public SearchController(SearchExecutor searchExecutor, MapAreaDao mapAreaDao, StatisticsCollector statisticsCollector) {
+	public SearchController(SearchExecutor searchExecutor, StatisticsCollector statisticsCollector) {
 		mSearchExec = searchExecutor;
-		mMapAreaDao = mapAreaDao;
 		mStatsCollector = statisticsCollector;
 	}
 	
-	public Optional<String> createSearch(Integer professionId, MutableLatLng location) {
-		MapArea mapArea = mMapAreaDao.getMapAreaAtLocationForType(
-				location.getLng(), 
-				location.getLat(), 
-				MapAreaType.Ward
-		);
-		
-		if(mapArea != null) {
-			SearchParams searchParams = new SearchParams(professionId, mapArea);
-			String searchId = mSearchExec.createSearch(searchParams);
-			return Optional.of(searchId);
-		} else {
-			return Optional.empty();
-		}
+	public Observable<SearchResult> doSearch(Profession profession, MapArea location) {
+		return Observable.just(createSearch(profession, location))
+		  .flatMap(searchKey -> 
+		    Observable.interval(1, TimeUnit.SECONDS)
+		    	.map(i -> getSearchResult(searchKey))
+		    	.filter(result -> result.isComplete())
+		    	.take(1)
+		  );
+	}
+	
+	public SearchResult blockingSearch(Profession profession, MapArea location) {
+		return doSearch(profession, location).blockingFirst();
+	}
+	
+	public String createSearch(Profession profession, MapArea location) {
+		SearchParams searchParams = new SearchParams(profession, location);
+		return mSearchExec.createSearch(searchParams);
 	}
 	
 	public SearchResult getSearchResult(String searchKey) {
 		SearchResult searchResult = mSearchExec.getResult(searchKey);
 		
-		if(searchResult.isComplete && searchResult.errors.isEmpty()) {
+		if(searchResult.isComplete() && searchResult.errors.isEmpty()) {
 			mStatsCollector.searchResultsReceived(searchResult.tradesmen);
 		}
 		

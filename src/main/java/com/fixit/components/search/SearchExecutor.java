@@ -11,6 +11,7 @@ import java.util.concurrent.TimeUnit;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import com.fixit.components.events.ServerEventController;
 import com.fixit.core.dao.mongo.TradesmanDao;
 import com.fixit.core.dao.sql.ReviewDao;
 import com.fixit.core.utils.Formatter;
@@ -31,6 +32,8 @@ public class SearchExecutor {
 	
 	private final TradesmanDao mTradesmanDao;
 	private final ReviewDao mReviewDao;
+
+	private final ServerEventController mEventController;
 	
 	private final ListeningExecutorService mExecutor;
 	private final Cache<String, SearchResult> mCache;
@@ -38,10 +41,13 @@ public class SearchExecutor {
 	private final Set<String> mOnGoingSearches = new HashSet<>();
 	private final Object mLock = new Object();
 	
+	
 	@Autowired
-	public SearchExecutor(TradesmanDao tradesmanDao, ReviewDao reviewDao) {
+	public SearchExecutor(TradesmanDao tradesmanDao, ReviewDao reviewDao, ServerEventController serverEventController) {
 		mTradesmanDao = tradesmanDao;
 		mReviewDao = reviewDao;
+	
+		mEventController = serverEventController;
 		
 		int maxTasks = (int) Math.floor(Formatter.percent(70, Runtime.getRuntime().availableProcessors()));
 		mExecutor = MoreExecutors.listeningDecorator(Executors.newWorkStealingPool(maxTasks));
@@ -70,6 +76,7 @@ public class SearchExecutor {
 						mCache.put(key, result);
 						mOnGoingSearches.remove(key);
 					}
+					mEventController.searchComplete(result);
 				}
 
 				@Override
@@ -94,7 +101,7 @@ public class SearchExecutor {
 		}
 		
 		if(result == null) {			
-			SearchResult.Builder resultBuilder = new SearchResult.Builder();
+			SearchResult.Builder resultBuilder = new SearchResult.Builder(null);
 			if(!onGoingSearch) {
 				resultBuilder.setComplete().addError(SearchResult.Error.NO_SEARCH_EXISTS);
 			}
@@ -105,7 +112,7 @@ public class SearchExecutor {
 	}
 	
 	private String createKey(SearchParams searchParams) {
-		return searchParams.professionId + "-" + searchParams.location.get_id().toHexString();
+		return searchParams.profession.getId() + "-" + searchParams.location.get_id().toHexString();
 	}
 	
 }

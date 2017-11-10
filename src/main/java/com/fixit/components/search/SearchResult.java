@@ -3,7 +3,7 @@
  */
 package com.fixit.components.search;
 
-import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -22,21 +22,30 @@ import com.google.common.collect.ImmutableSet;
  */
 public class SearchResult {
 
+	public final SearchParams params;
 	public final ImmutableSet<Error> errors;
 	public final ImmutableList<Tradesman> tradesmen;
 	public final ImmutableMap<String, Long> reviewCountForTradesmen;
-	public final boolean isComplete;
+	public final Date completedAt;
 	
 	public enum Error {
 		NO_SEARCH_EXISTS;
 	}
 	
 	private SearchResult(Builder builder) {
+		params = builder.params;
 		tradesmen = ImmutableList.copyOf(builder.tradesmen);
 		errors = ImmutableSet.copyOf(builder.errors);
 		reviewCountForTradesmen = ImmutableMap.copyOf(builder.reviewCountForTradesmen);
-		
-		isComplete = builder.isComplete;
+		completedAt = builder.completedAt;
+	}
+
+	public boolean hasErrors() {
+		return !errors.isEmpty();
+	}
+	
+	public boolean isComplete() {
+		return completedAt != null;
 	}
 	
 	public String errorToString() {
@@ -54,20 +63,23 @@ public class SearchResult {
 	}
 	
 	public static class Builder {
-		private List<Tradesman> tradesmen = new ArrayList<>();
+		private final SearchParams params;
+		private Set<Tradesman> tradesmen = new HashSet<>();
 		private Set<Error> errors = new HashSet<>();
 		private Map<String, Long> reviewCountForTradesmen = new HashMap<>();
-		private boolean isComplete = false;
+		private Date completedAt;
 		
-		public Builder() { }
+		public Builder(SearchParams searchParams) {
+			this.params = searchParams;
+		}
 		
 		public Builder addError(Error error) {
-			errors.add(error);
+			this.errors.add(error);
 			return this;
 		}
 		
 		public Builder addTradesman(Tradesman tradesman) {
-			tradesmen.add(tradesman);
+			this.tradesmen.add(tradesman);
 			return this;
 		}
 		
@@ -82,7 +94,7 @@ public class SearchResult {
 		}
 		
 		public Builder setComplete() {
-			this.isComplete = true;
+			this.completedAt = new Date();
 			return this;
 		}
 		

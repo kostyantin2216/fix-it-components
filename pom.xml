@@ -9,6 +9,7 @@
   
   <properties>
   	<core.version>0.0.2</core.version>
+  	<rxjava.version>2.1.6</rxjava.version>
   </properties>
   
   <dependencies>
@@ -18,6 +19,12 @@
   		<artifactId>fix-it-core</artifactId>
   		<version>${core.version}</version>
   	</dependency>
+  	
+	<dependency>
+	    <groupId>io.reactivex.rxjava2</groupId>
+	    <artifactId>rxjava</artifactId>
+	    <version>${rxjava.version}</version>
+	</dependency>
   	
   </dependencies>
   

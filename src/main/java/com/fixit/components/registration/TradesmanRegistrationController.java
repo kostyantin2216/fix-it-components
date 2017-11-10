@@ -6,12 +6,10 @@ package com.fixit.components.registration;
 import java.io.IOException;
 import java.io.InputStream;
 
-import javax.mail.Session;
-import javax.mail.internet.AddressException;
-
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import com.fixit.components.events.ServerEventController;
 import com.fixit.components.statistics.StatisticsCollector;
 import com.fixit.core.dao.mongo.TradesmanDao;
 import com.fixit.core.dao.sql.StoredPropertyDao;
@@ -20,9 +18,6 @@ import com.fixit.core.dao.sql.impl.TradesmanLeadDaoImpl;
 import com.fixit.core.data.mongo.Tradesman;
 import com.fixit.core.data.sql.TradesmanLead;
 import com.fixit.core.general.FileManager;
-import com.fixit.core.general.PropertyGroup;
-import com.fixit.core.general.PropertyGroup.Group;
-import com.fixit.core.general.StoredProperties;
 import com.fixit.core.logging.FILog;
 import com.fixit.core.messaging.SimpleEmailSender;
 import com.fixit.core.utils.Constants;
@@ -40,24 +35,19 @@ public class TradesmanRegistrationController {
 	private final StoredPropertyDao mPropertyDao;
 	private final StatisticsCollector mStatsCollector;
 	private final SimpleEmailSender mMailSender;
+	private final ServerEventController mEventController;
 	
 	@Autowired
 	public TradesmanRegistrationController(FileManager fileManager, TradesmanDao tradesmanDao, TradesmanLeadDao tradesmanLeadDao, 
 							   StoredPropertyDao storedPropertyDao, StatisticsCollector statisticsCollector, 
-							   Session session) {
+							   SimpleEmailSender simpleEmailSender, ServerEventController serverEventController) {
 		mFileManager = fileManager;
 		mTradesmanDao = tradesmanDao;
 		mLeadDao = tradesmanLeadDao;
 		mPropertyDao = storedPropertyDao;
 		mStatsCollector = statisticsCollector;
-		PropertyGroup pg = mPropertyDao.getPropertyGroup(Group.mail);
-		String from = pg.getString(StoredProperties.MAIL_USERNAME, "");
-		try {
-			mMailSender = new SimpleEmailSender(session, from);
-		} catch (AddressException e) {
-			// this should not happen unless an illegal email is entered in stored properties.
-			throw new IllegalArgumentException("Could not create mail sender with from email: " + from);
-		}
+		mMailSender = simpleEmailSender;
+		mEventController = serverEventController;
 	}
 	
 	public void newLead(TradesmanLead lead) {
@@ -66,7 +56,7 @@ public class TradesmanRegistrationController {
 		} else {
 			TradesmanLead registeredLead = mLeadDao.findOneByProperty(TradesmanLeadDaoImpl.PROP_EMAIL, lead.getEmail());
 			if(!registeredLead.isEmailSent()) {
-				sendEmail(lead);
+			//	sendEmail(lead);
 				mLeadDao.update(lead);
 			}
 			FILog.w(Constants.LT_TRADESMAN_REGISTRATION, "Couldn't store lead: " + lead, true);
@@ -85,21 +75,20 @@ public class TradesmanRegistrationController {
 	private void registerLead(TradesmanLead lead) {
 		mLeadDao.save(lead);
 		
-		sendEmail(lead);
+		mEventController.newLead(lead);
+		//sendEmail(lead);
 	}
 	
 	public TradesmanLead findLead(long leadId) {
 		return mLeadDao.findById(leadId);
 	}
 	
-	public void registerTradesman(long leadId, Tradesman tradesman, InputStream logoInputStream, String logoFileExtension, InputStream featureInputStream, String featureFileExtension) throws IOException {
+	public void registerTradesman(long leadId, Tradesman tradesman, InputStream logoInputStream, String logoFileExtension) throws IOException {
 		mTradesmanDao.save(tradesman);
 		
 		String tradesmanId = tradesman.get_id().toHexString();
 		String logoPath = mFileManager.storeTradesmanLogo(tradesmanId, logoFileExtension, logoInputStream);
-		String featureImagesPath = mFileManager.storeTradesmanFeatureImage(tradesmanId, featureFileExtension, featureInputStream);
 		tradesman.setLogoUrl(logoPath);
-		tradesman.setFeatureImageUrl(featureImagesPath);
 		
 		mTradesmanDao.update(tradesman);
 		

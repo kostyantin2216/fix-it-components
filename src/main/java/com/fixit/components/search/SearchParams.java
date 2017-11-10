@@ -4,6 +4,7 @@
 package com.fixit.components.search;
 
 import com.fixit.core.data.mongo.MapArea;
+import com.fixit.core.data.sql.Profession;
 
 /**
  * @author 		Kostyantin
@@ -11,11 +12,11 @@ import com.fixit.core.data.mongo.MapArea;
  */
 public class SearchParams {
 	
-	public final int professionId;
+	public final Profession profession;
 	public final MapArea location;
 	
-	public SearchParams(int professionId, MapArea location) {
-		this.professionId = professionId;
+	public SearchParams(Profession profession, MapArea location) {
+		this.profession = profession;
 		this.location = location;
 	}
 }

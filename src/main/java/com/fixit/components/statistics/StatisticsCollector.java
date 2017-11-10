@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
 
 import com.fixit.core.dao.sql.TradesmanStatisticsDao;
 import com.fixit.core.dao.sql.UserStatisticsDao;
+import com.fixit.core.data.mongo.CommonUser;
 import com.fixit.core.data.mongo.Tradesman;
 import com.fixit.core.data.mongo.User;
 import com.fixit.core.data.sql.TradesmanStatistics;
@@ -21,9 +22,7 @@ import com.fixit.core.data.sql.UserStatistics;
  */
 @Component
 public class StatisticsCollector {
-	
-	private final static String LOG_TAG = StatisticsCollector.class.getSimpleName();
-	
+		
 	private final UserStatisticsDao mUserStatsDao;
 	private final TradesmanStatisticsDao mTradesmanStatsDao;
 	
@@ -74,7 +73,7 @@ public class StatisticsCollector {
 		}
 	}
 	
-	public void newOrder(User user, Tradesman[] tradesmen) {
+	public void newOrder(CommonUser user, Tradesman[] tradesmen) {
 		UserStatistics userStats = getUserStatistics(user.get_id());
 		userStats.setJobsOrdered(userStats.getJobsOrdered() + 1);
 		mUserStatsDao.update(userStats);
