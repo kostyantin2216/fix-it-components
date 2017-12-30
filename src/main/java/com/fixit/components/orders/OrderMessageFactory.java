@@ -44,11 +44,13 @@ public class OrderMessageFactory {
 		
 		int charCount = sb.length();
 		
-		for(JobReason jobReason : jobReasons) {
-			if(sb.length() > charCount) {
-				sb.append(",");
+		if(jobReasons != null) {
+			for(JobReason jobReason : jobReasons) {
+				if(sb.length() > charCount) {
+					sb.append(",");
+				}
+				sb.append(jobReason.getName());
 			}
-			sb.append(jobReason.getName());
 		}
 		
 		return sb.toString();

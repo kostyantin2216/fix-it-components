@@ -1,7 +1,7 @@
 /**
  * 
  */
-package com.fixit.components.registration;
+package com.fixit.components.users;
 
 import org.bson.types.ObjectId;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,6 +15,7 @@ import com.fixit.core.dao.mongo.UserDao;
 import com.fixit.core.dao.mongo.impl.UserDaoImpl;
 import com.fixit.core.data.mongo.AppInstallation;
 import com.fixit.core.data.mongo.User;
+import com.fixit.core.utils.Formatter;
 
 /**
  * @author 		Kostyantin
@@ -37,9 +38,10 @@ public class UserRegistrationController {
 		mEventController = serverEventController;
 	}
 	
-	public RegistrationResult findOrRegister(User user, String appInstallationId) {		
+	UserRegistrationResult findOrRegister(User user, String appInstallationId) {		
 		AppInstallation appInstallaition = mInstallationDao.findById(new ObjectId(appInstallationId));
 		if(appInstallaition != null) {
+			user.setTelephone(Formatter.normalizeTelephone(user.getTelephone()));
 			User existingUser = mUserDao.findOneByProperty(UserDao.PROP_TELEPHONE, user.getTelephone());
 			if(existingUser == null) {
 				String facebookId = user.getFacebookId();
@@ -58,9 +60,9 @@ public class UserRegistrationController {
 							mUserDao.save(user);
 							mStatsCollector.userRegistered(user);
 							mEventController.newUser(user);
-							return RegistrationResult.newUser(user);
+							return UserRegistrationResult.newUser(user);
 						} else {
-							return RegistrationResult.emailExists();
+							return UserRegistrationResult.emailExists();
 						}
 					}
 				}
@@ -70,40 +72,9 @@ public class UserRegistrationController {
 				mUserDao.update(existingUser);
 			}
 			mEventController.returningUser(existingUser);
-			return RegistrationResult.existingUser(existingUser);
+			return UserRegistrationResult.existingUser(existingUser);
 		} else {
-			return RegistrationResult.invalidAppInstallationId();
-		}
-	}
-		
-	public static class RegistrationResult {
-		
-		static RegistrationResult invalidAppInstallationId() {
-			return new RegistrationResult(null, false, true, false);
-		}
-		
-		static RegistrationResult emailExists() {
-			return new RegistrationResult(null, false, false, true);
-		}
-		
-		static RegistrationResult newUser(User user) {
-			return new RegistrationResult(user, true, false, false);
-		}
-		
-		static RegistrationResult existingUser(User user) {
-			return new RegistrationResult(user, false, false, false);
-		}
-		
-		public final User user;
-		public final boolean invalidAppInstallationId;
-		public final boolean emailExists;
-		public final boolean newUser;
-		
-		public RegistrationResult(User user, boolean newUser, boolean invalidAppInstallationId, boolean emailExists) {
-			this.user = user;
-			this.invalidAppInstallationId = invalidAppInstallationId;
-			this.emailExists = emailExists;
-			this.newUser = newUser;
+			return UserRegistrationResult.invalidAppInstallationId();
 		}
 	}
 	

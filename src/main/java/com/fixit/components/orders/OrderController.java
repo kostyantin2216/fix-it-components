@@ -3,8 +3,12 @@
  */
 package com.fixit.components.orders;
 
+import java.util.Arrays;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 import org.bson.types.ObjectId;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -12,23 +16,25 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
 import com.fixit.components.events.ServerEventController;
+import com.fixit.components.maps.MapAreaController;
+import com.fixit.components.search.SearchController;
+import com.fixit.components.search.SearchResult;
 import com.fixit.components.statistics.StatisticsCollector;
 import com.fixit.core.dao.mongo.OrderDataDao;
 import com.fixit.core.dao.mongo.TradesmanDao;
 import com.fixit.core.dao.sql.OrderMessageDao;
 import com.fixit.core.dao.sql.StoredPropertyDao;
 import com.fixit.core.data.JobLocation;
-import com.fixit.core.data.OrderType;
-import com.fixit.core.data.mongo.CommonUser;
+import com.fixit.core.data.mongo.MapArea;
 import com.fixit.core.data.mongo.OrderData;
 import com.fixit.core.data.mongo.Tradesman;
 import com.fixit.core.data.sql.JobReason;
 import com.fixit.core.data.sql.OrderMessage;
-import com.fixit.core.data.sql.Profession;
-import com.fixit.core.general.PropertyGroup;
 import com.fixit.core.general.PropertyGroup.Group;
+import com.fixit.core.general.StoredProperties;
 import com.fixit.core.logging.FILog;
 import com.fixit.core.messaging.SimpleMessageSender;
+import com.google.common.collect.ImmutableList;
 
 /**
  * @author 		Kostyantin
@@ -37,7 +43,7 @@ import com.fixit.core.messaging.SimpleMessageSender;
 @Component
 public class OrderController {
 	
-	private final PropertyGroup mProperties;
+	private final StoredPropertyDao mProperties;
 	private final OrderDataDao mOrderDataDao;
 	private final OrderMessageDao mOrderMsgDao;
 	private final TradesmanDao mTradesmanDao;
@@ -45,51 +51,99 @@ public class OrderController {
 	private final StatisticsCollector mStatsCollector;
 	private final OrderMessageFactory mMsgFactory;
 	private final ServerEventController mEventsController;
+	private final MapAreaController mMapAreaController;
+	private final SearchController mSearchController;
 	
 	@Autowired
 	public OrderController(StoredPropertyDao storedPropertyDao, OrderDataDao orderDataDao, OrderMessageDao orderMessageDao, 
 									TradesmanDao tradesmanDao, SimpleMessageSender messageSender, 
-									StatisticsCollector statisticsCollector, ServerEventController serverEventsController) {
-		mProperties = storedPropertyDao.getPropertyGroup(Group.orders);
+									StatisticsCollector statisticsCollector, ServerEventController serverEventsController,
+									MapAreaController mapAreaController, SearchController searchController) {
+		mProperties = storedPropertyDao;
 		mOrderDataDao = orderDataDao;
 		mOrderMsgDao = orderMessageDao;
 		mTradesmanDao = tradesmanDao;
 		mMsgSender = messageSender;
 		mStatsCollector = statisticsCollector;
-		mMsgFactory = new OrderMessageFactory(mProperties);
+		mMsgFactory = new OrderMessageFactory(mProperties.getPropertyGroup(Group.orders));
 		mEventsController = serverEventsController;
+		mMapAreaController = mapAreaController;
+		mSearchController = searchController;
 	}
 	
-	public OrderData orderTradesmen(OrderType orderType, Profession profession, CommonUser user, Tradesman[] tradesmen, 
-									JobLocation location) {
-		return orderTradesmen(orderType, profession, user, tradesmen, location, new JobReason[0], null);
-	}
-	
-	public OrderData orderTradesmen(OrderType orderType, Profession profession, CommonUser user, Tradesman[] tradesmen, 
-									JobLocation location, JobReason[] jobReasons, String comment) {		
-		FILog.i("Creating order type: " + orderType + ", for " + profession.getName() 
-				+ " at " + location.getGoogleAddress());
+	public Optional<OrderData> quickOrder(OrderParams op) {
+		Optional<JobLocation> jobLocation;
+		if(op.getLocation() == null) {
+			jobLocation = mMapAreaController.createLocation(op.getAddress());
+		} else {
+			jobLocation = Optional.of(op.getLocation());
+		}
 		
-		OrderLine orderLine = createOrderLine(profession.getId(), tradesmen, jobReasons);
+		if(jobLocation.isPresent()) {
+			JobLocation location = jobLocation.get();
+			MapArea mapArea = mMapAreaController.getAreaOfJobLocation(location);
+			if(mapArea != null) {
+				SearchResult searchResult = mSearchController.blockingSearch(op.getProfession(), mapArea);
+				
+				int maxTradesmen = mProperties.get(Group.orders.name(), StoredProperties.ORDERS_MAX_QUICK_ORDER_TRADESMEN, 3);
+				Tradesman[] tradesmen = ImmutableList.sortedCopyOf(Tradesman.PRIORITY_COMPARATOR, searchResult.tradesmen)
+							 						 .stream()
+							 						 .limit(maxTradesmen)
+							 						 .toArray(Tradesman[]::new);
+				return Optional.of(orderTradesmen(
+						op.extendQuickOrder(tradesmen, location)
+				));
+			} else {
+				mEventsController.orderFailed(op, "Could not find map area for location: " + location);
+			}
+		} else {
+			mEventsController.orderFailed(op, "Could not create job location for address");
+		}
+		
+		return Optional.empty();
+	}
+	
+	public Optional<OrderData> directOrder(OrderParams op) {
+		Optional<JobLocation> jobLocation = mMapAreaController.createLocation(op.getAddress());
+		
+		if(jobLocation.isPresent()) {
+			return Optional.of(orderTradesmen(
+					op.extendDirectOrder(jobLocation.get())
+			));
+		} else {
+			mEventsController.orderFailed(op, "Could not create job location for address");
+		}
+		
+		return Optional.empty();
+	}
+	
+	public OrderData orderTradesmen(OrderParams op) {		
+		FILog.i("Creating order type: " + op.getOrderType() + ", for " + op.getProfession().getName() 
+				+ " at " + op.getLocation().getGoogleAddress());
+		
+		OrderLine orderLine = createOrderLine(op.getProfession().getId(), op.getTradesmen(), op.getReasons());
+		
+		mMapAreaController.normalizeJobLocation(op.getLocation());
 		
 		OrderData order = new OrderData(
-				orderLine.tradesmenIds, 
-				user.get_id(), 
+				orderLine.telephonesForTradesmen.keySet().stream().toArray(ObjectId[]::new), 
+				op.getUser().get_id(), 
 				orderLine.professionId, 
-				location, 
+				op.getLocation(), 
 				orderLine.jobReasonIds, 
-				comment, 
+				op.getComment(), 
 				false, 
-				orderType,
+				op.getUser().getType(),
+				op.getOrderType(),
 				new Date()
 		);
 		
 		mOrderDataDao.save(order);
 		
-		sendOrderMessages(user, order, orderLine.tradesmenIds, orderLine.telephones, location, jobReasons, comment);
+		sendOrderMessages(order, op, orderLine.telephonesForTradesmen);
 		
-		mStatsCollector.newOrder(user, tradesmen);
-		mEventsController.newOrder(user, tradesmen, profession, location, jobReasons, comment);
+		mStatsCollector.newOrder(op.getUser(), op.getTradesmen());
+		mEventsController.newOrder(op, order);
 		
 		return order;
 	}	
@@ -97,44 +151,43 @@ public class OrderController {
 	private OrderLine createOrderLine(int professionId, Tradesman[] tradesmen, JobReason[] jobReasons) {
 		int tradesmenCount = tradesmen.length;
 		
-		ObjectId[] tradesmenIds = new ObjectId[tradesmenCount];
-		String[] telephones = new String[tradesmenCount];
+		Map<ObjectId, String> telephonesForTradesmen = new HashMap<>();
 		
 		for(int i = 0; i < tradesmenCount; i++) {
-			tradesmenIds[i] = tradesmen[i].get_id();
+			ObjectId tradesmanId = tradesmen[i].get_id();
 			String telephone = tradesmen[i].getTelephone();
 			if(StringUtils.isEmpty(telephone)) {
-				telephones[i] = mTradesmanDao.getTelephoneForTradsman(tradesmenIds[i]);
-			} else {
-				telephones[i] = telephone;
+				telephone = mTradesmanDao.getTelephoneForTradsman(tradesmanId);
 			}
+			telephonesForTradesmen.put(tradesmanId, telephone);
 		}
 		
-		int[] jobReasonIds = new int[jobReasons.length];
-		for(int i = 0; i < jobReasonIds.length; i++) {
-			jobReasonIds[i] = jobReasons[i].getId();
+		int[] jobReasonIds;
+		if(jobReasons != null) {
+			jobReasonIds = Arrays.stream(jobReasons)
+								 .mapToInt(jr -> jr.getId())
+								 .toArray();
+		} else {
+			jobReasonIds = new int[0];
 		}
 		
-		return new OrderLine(professionId, jobReasonIds, tradesmenIds, telephones);
+		return new OrderLine(professionId, jobReasonIds, telephonesForTradesmen);
 	}
 	
-	private void sendOrderMessages(CommonUser user, OrderData order, ObjectId[] tradesmenIds, 
-								  String[] telephones, JobLocation location, JobReason[] jobReasons, 
-								  String comment) {
-
-		String userId = user.get_id().toHexString();
+	private void sendOrderMessages(OrderData order, OrderParams op, Map<ObjectId, String> telephonesForTradesmen) {
+		String userId = op.getUser().get_id().toHexString();
 		String orderId = order.get_id().toHexString();
 		String content = mMsgFactory.createMessage(
-				user, mStatsCollector.getUserStatistics(user.get_id()), location, jobReasons, comment
+				op.getUser(), mStatsCollector.getUserStatistics(op.getUser().get_id()), op.getLocation(), op.getReasons(), op.getComment()
 		);
 		
-		for(int i = 0; i < tradesmenIds.length; i++) {
-			String messageSid = mMsgSender.sendMessage(telephones[i], content);
+		for(Map.Entry<ObjectId, String> entry : telephonesForTradesmen.entrySet()) {
+			String messageSid = mMsgSender.sendMessage(entry.getValue(), content);
 			OrderMessage orderMessage = new OrderMessage(
 					messageSid, 
 					orderId, 
 					userId, 
-					tradesmenIds[i].toHexString(), 
+					entry.getKey().toHexString(), 
 					content
 			);
 			
@@ -149,14 +202,12 @@ public class OrderController {
 	private static class OrderLine {
 		final int professionId;
 		final int[] jobReasonIds;
-		final ObjectId[] tradesmenIds;
-		final String[] telephones;
+		final Map<ObjectId, String> telephonesForTradesmen;
 		
-		OrderLine(int professionId, int[] jobReasonIds, ObjectId[] tradesmenIds, String[] telephones) {
+		OrderLine(int professionId, int[] jobReasonIds, Map<ObjectId, String> telephonesForTradesmen) {
 			this.professionId = professionId;
 			this.jobReasonIds = jobReasonIds;
-			this.tradesmenIds = tradesmenIds;
-			this.telephones = telephones;
+			this.telephonesForTradesmen = telephonesForTradesmen;
 		}
 	}
 	

@@ -10,6 +10,7 @@
   <properties>
   	<core.version>0.0.2</core.version>
   	<rxjava.version>2.1.6</rxjava.version>
+  	<gmaps.services.version>0.2.5</gmaps.services.version>
   </properties>
   
   <dependencies>
@@ -24,6 +25,12 @@
 	    <groupId>io.reactivex.rxjava2</groupId>
 	    <artifactId>rxjava</artifactId>
 	    <version>${rxjava.version}</version>
+	</dependency>
+	
+	<dependency>
+    	<groupId>com.google.maps</groupId>
+    	<artifactId>google-maps-services</artifactId>
+    	<version>${gmaps.services.version}</version>
 	</dependency>
   	
   </dependencies>

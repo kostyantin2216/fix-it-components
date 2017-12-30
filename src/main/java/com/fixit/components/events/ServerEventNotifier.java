@@ -5,18 +5,15 @@ package com.fixit.components.events;
 
 import java.util.Arrays;
 
-import org.bson.types.ObjectId;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import com.fixit.core.config.json.ObjectIdTypeAdatper;
+import com.fixit.core.config.GsonManager;
 import com.fixit.core.dao.sql.StoredPropertyDao;
-import com.fixit.core.general.PropertyGroup;
 import com.fixit.core.general.PropertyGroup.Group;
 import com.fixit.core.general.StoredProperties;
 import com.fixit.core.messaging.SimpleEmailSender;
 import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 
 /**
  * @author 		Kostyantin
@@ -30,17 +27,10 @@ public class ServerEventNotifier {
 	private final Gson mGson;
 	
 	@Autowired
-	public ServerEventNotifier(SimpleEmailSender emailSender, StoredPropertyDao storedPropertyDao) {
+	public ServerEventNotifier(SimpleEmailSender emailSender, StoredPropertyDao storedPropertyDao, GsonManager gsonManager) {
 		this.mEmailSender = emailSender;
 		this.mStoredPropertyDao = storedPropertyDao;
-		this.mGson = new GsonBuilder()
-				.registerTypeAdapter(ObjectId.class, new ObjectIdTypeAdatper())
-				.setDateFormat(storedPropertyDao.find(
-						PropertyGroup.Group.events.name(), 
-						StoredProperties.EVENTS_NOTIFY_DATE_FORMAT
-					).getValue())
-				.setPrettyPrinting()
-				.create();
+		this.mGson = gsonManager.getServerNotifierGson();
 	}
 	
 	public void notify(ServerEvent event) {

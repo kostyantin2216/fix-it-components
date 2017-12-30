@@ -32,7 +32,7 @@ public class SearchTask implements Callable<SearchResult> {
 	public SearchResult call() throws Exception {
 		SearchResult.Builder resultBuilder = new SearchResult.Builder(mParams);
 
-		List<Tradesman> tradesmen = mTradesmanDao.getTradesmenForArea(mParams.profession.getId(), mParams.location);
+		List<Tradesman> tradesmen = mTradesmanDao.findTradesmenForArea(mParams.profession.getId(), mParams.location);
 		if(tradesmen != null) {		
 			Map<String, Long> reviewCountForTradesmen = new HashMap<>();
 			for(Tradesman tradesman : tradesmen) {
