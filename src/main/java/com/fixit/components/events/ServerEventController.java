@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 import com.fixit.components.orders.OrderParams;
 import com.fixit.components.search.SearchResult;
 import com.fixit.core.data.mongo.OrderData;
+import com.fixit.core.data.mongo.OrderRequest;
 import com.fixit.core.data.mongo.User;
 import com.fixit.core.data.sql.Review;
 import com.fixit.core.data.sql.TradesmanLead;
@@ -28,6 +29,10 @@ public class ServerEventController {
 	private final static String EVENT_REVIEW_UPDATED = "Review Updated";
 	private final static String EVENT_EMPTY_SEARCH = "Empty Search";
 	private final static String EVENT_ORDER_FAILED = "Order Failed";
+	private final static String EVENT_NEW_ORDER_REQUEST = "New Order Request";
+	private final static String EVENT_ORDER_REQUEST_FAILED = "Order Request Failed";
+	private final static String EVENT_ORDER_REQUEST_COMPLETE = "Order Request Complete";
+	private final static String EVENT_ORDER_REQUEST_DENIED = "Order Request Denied";
 	
 	private final static String PARAM_TRADESMAN_LEAD = "tradesmanLead";
 	private final static String PARAM_USER = "user";
@@ -36,9 +41,11 @@ public class ServerEventController {
 	private final static String PARAM_REVIEW = "review";
 	private final static String PARAM_COMPLETED_AT = "completedAt";
 	private final static String PARAM_ORDER_PARAMS = "orderParams";
+	private final static String PARAM_ORDER_REQUEST = "orderRequest";
 	private final static String PARAM_ORDER = "order";
 	private final static String PARAM_ERROR = "error";
 	private final static String PARAM_USER_TYPE = "userType";
+	private final static String PARAM_REASON = "reason";
 	
 	private final ServerEventNotifier mNotifier;
 	
@@ -91,6 +98,38 @@ public class ServerEventController {
 				.doNotify()
 				.addParam(PARAM_ORDER_PARAMS, params)
 				.addParam(PARAM_ORDER, order)
+				.build());
+	}
+	
+	public void newOrderRequest(OrderParams orderParams, OrderRequest orderRequest) {
+		newEvent(new ServerEvent.Builder(EVENT_NEW_ORDER_REQUEST)
+				.doNotify()
+				.addParam(PARAM_ORDER_PARAMS, orderParams)
+				.addParam(PARAM_ORDER_REQUEST, orderRequest)
+				.build());
+	}
+	
+	public void orderRequestFailed(OrderParams orderParams, OrderRequest orderRequest) {
+		newEvent(new ServerEvent.Builder(EVENT_ORDER_REQUEST_FAILED)
+				.doNotify()
+				.addParam(PARAM_ORDER_PARAMS, orderParams)
+				.addParam(PARAM_ORDER_REQUEST, orderRequest)
+				.build());
+	}
+	
+	public void orderRequestComplete(OrderParams orderParams, OrderRequest orderRequest) {
+		newEvent(new ServerEvent.Builder(EVENT_ORDER_REQUEST_COMPLETE)
+				.doNotify()
+				.addParam(PARAM_ORDER_PARAMS, orderParams)
+				.addParam(PARAM_ORDER_REQUEST, orderRequest)
+				.build());
+	}
+	
+	public void orderRequestDenied(OrderRequest orderRequest, String reason) {
+		newEvent(new ServerEvent.Builder(EVENT_ORDER_REQUEST_DENIED)
+				.doNotify()
+				.addParam(PARAM_REASON, reason)
+				.addParam(PARAM_ORDER_REQUEST, orderRequest)
 				.build());
 	}
 

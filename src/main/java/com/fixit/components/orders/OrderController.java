@@ -25,6 +25,7 @@ import com.fixit.core.dao.mongo.TradesmanDao;
 import com.fixit.core.dao.sql.OrderMessageDao;
 import com.fixit.core.dao.sql.StoredPropertyDao;
 import com.fixit.core.data.JobLocation;
+import com.fixit.core.data.OrderType;
 import com.fixit.core.data.mongo.MapArea;
 import com.fixit.core.data.mongo.OrderData;
 import com.fixit.core.data.mongo.Tradesman;
@@ -71,60 +72,67 @@ public class OrderController {
 		mSearchController = searchController;
 	}
 	
-	public Optional<OrderData> quickOrder(OrderParams op) {
-		Optional<JobLocation> jobLocation;
-		if(op.getLocation() == null) {
-			jobLocation = mMapAreaController.createLocation(op.getAddress());
-		} else {
-			jobLocation = Optional.of(op.getLocation());
-		}
+	public Optional<OrderData> orderTradesmen(OrderParams op) {		
+		FILog.i("Creating order type: " + op.getOrderType() + ", for " + op.getProfession().getName() 
+				+ " at " + op.getAddress());
+	
+		Optional<JobLocation> jobLocation = getJobLocation(op);
 		
+		OrderData orderData = null;
+		String error = null;
 		if(jobLocation.isPresent()) {
 			JobLocation location = jobLocation.get();
-			MapArea mapArea = mMapAreaController.getAreaOfJobLocation(location);
-			if(mapArea != null) {
-				SearchResult searchResult = mSearchController.blockingSearch(op.getProfession(), mapArea);
+			mMapAreaController.normalizeJobLocation(location);
+			String mapAreaId = location.getMapAreaId();
+			if(mapAreaId != null && ObjectId.isValid(mapAreaId)) {
+				op = op.updateLocation(location);
+				op = processOrderType(op);
 				
-				int maxTradesmen = mProperties.get(Group.orders.name(), StoredProperties.ORDERS_MAX_QUICK_ORDER_TRADESMEN, 3);
-				Tradesman[] tradesmen = ImmutableList.sortedCopyOf(Tradesman.PRIORITY_COMPARATOR, searchResult.tradesmen)
-							 						 .stream()
-							 						 .limit(maxTradesmen)
-							 						 .toArray(Tradesman[]::new);
-				return Optional.of(orderTradesmen(
-						op.extendQuickOrder(tradesmen, location)
-				));
+				orderData = completeOrder(op);
 			} else {
-				mEventsController.orderFailed(op, "Could not find map area for location: " + location);
+				error = "Location is not supported";
 			}
 		} else {
-			mEventsController.orderFailed(op, "Could not create job location for address");
+			error = "Could not create job location for address";
 		}
 		
-		return Optional.empty();
-	}
-	
-	public Optional<OrderData> directOrder(OrderParams op) {
-		Optional<JobLocation> jobLocation = mMapAreaController.createLocation(op.getAddress());
+		if(error != null) {
+			mEventsController.orderFailed(op, error);
+		}
 		
-		if(jobLocation.isPresent()) {
-			return Optional.of(orderTradesmen(
-					op.extendDirectOrder(jobLocation.get())
-			));
+		return Optional.ofNullable(orderData);
+	}	
+	
+	private Optional<JobLocation> getJobLocation(OrderParams op) {
+		if(op.getLocation() != null) {
+			return Optional.of(op.getLocation());
+		} else if(!StringUtils.isEmpty(op.getAddress())) {
+			return mMapAreaController.createLocation(op.getAddress());
 		} else {
-			mEventsController.orderFailed(op, "Could not create job location for address");
+			return Optional.empty();
 		}
-		
-		return Optional.empty();
 	}
 	
-	public OrderData orderTradesmen(OrderParams op) {		
-		FILog.i("Creating order type: " + op.getOrderType() + ", for " + op.getProfession().getName() 
-				+ " at " + op.getLocation().getGoogleAddress());
-		
+	private OrderParams processOrderType(OrderParams op) {
+		if(op.getOrderType() == OrderType.QUICK && !op.hasTradesmen()) {
+			JobLocation location = op.getLocation();
+			MapArea mapArea = mMapAreaController.getAreaOfJobLocation(location);
+			SearchResult searchResult = mSearchController.blockingSearch(op.getProfession(), mapArea);
+			
+			int maxTradesmen = mProperties.get(Group.orders.name(), StoredProperties.ORDERS_MAX_QUICK_ORDER_TRADESMEN, 3);
+			Tradesman[] tradesmen = ImmutableList.sortedCopyOf(Tradesman.PRIORITY_COMPARATOR, searchResult.tradesmen)
+						 						 .stream()
+						 						 .limit(maxTradesmen)
+						 						 .toArray(Tradesman[]::new);
+			
+			return op.extendQuickOrder(tradesmen, location);
+		}
+		return op;
+	}
+	
+	private OrderData completeOrder(OrderParams op) {
 		OrderLine orderLine = createOrderLine(op.getProfession().getId(), op.getTradesmen(), op.getReasons());
-		
-		mMapAreaController.normalizeJobLocation(op.getLocation());
-		
+
 		OrderData order = new OrderData(
 				orderLine.telephonesForTradesmen.keySet().stream().toArray(ObjectId[]::new), 
 				op.getUser().get_id(), 
@@ -135,18 +143,21 @@ public class OrderController {
 				false, 
 				op.getUser().getType(),
 				op.getOrderType(),
-				new Date()
+				new Date(),
+				op.getTrafficSource().getId()
 		);
 		
 		mOrderDataDao.save(order);
 		
-		sendOrderMessages(order, op, orderLine.telephonesForTradesmen);
+		if(op.isNotifyTradesmen()) {
+			sendOrderMessages(order, op, orderLine.telephonesForTradesmen);
+		}
 		
 		mStatsCollector.newOrder(op.getUser(), op.getTradesmen());
 		mEventsController.newOrder(op, order);
 		
 		return order;
-	}	
+	}
 	
 	private OrderLine createOrderLine(int professionId, Tradesman[] tradesmen, JobReason[] jobReasons) {
 		int tradesmenCount = tradesmen.length;

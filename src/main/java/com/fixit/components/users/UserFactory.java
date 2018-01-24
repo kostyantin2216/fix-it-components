@@ -65,7 +65,9 @@ public class UserFactory {
 		if(user != null) {
 			return user;
 		} else {
-			mTempUserDao.save(tempUser);
+			if(mTempUserDao.findFirstWithTelephone(telephone) == null) {
+				mTempUserDao.save(tempUser);
+			}
 			return tempUser;
 		}
 	}
